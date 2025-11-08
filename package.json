@@ -1,7 +1,8 @@
 {
-  "name": "my-v0-project",
-  "version": "0.1.0",
+  "name": "chatgpt-clone-openrouter",
+  "version": "1.0.0",
   "private": true,
+  "description": "ChatGPT Clone with OpenRouter - 9 Free AI Models, Theme Support, Streaming Responses",
   "scripts": {
     "build": "next build",
     "dev": "next dev",
@@ -9,10 +10,7 @@
     "start": "next start"
   },
   "dependencies": {
-    "@ai-sdk/openai": "latest",
-    "@ai-sdk/react": "latest",
     "@hookform/resolvers": "^3.9.1",
-    "@openrouter/sdk": "^0.1.4",
     "@radix-ui/react-accordion": "latest",
     "@radix-ui/react-alert-dialog": "latest",
     "@radix-ui/react-aspect-ratio": "latest",
@@ -40,7 +38,6 @@
     "@radix-ui/react-toggle": "latest",
     "@radix-ui/react-toggle-group": "latest",
     "@radix-ui/react-tooltip": "latest",
-    "ai": "latest",
     "autoprefixer": "^10.4.20",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",

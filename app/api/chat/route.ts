@@ -50,12 +50,61 @@ export async function POST(req: Request) {
         } catch (error) {
           console.error('OpenRouter API error:', error)
           
-          // Provide helpful error message based on error type
+          // Check for specific error types and handle them
+          if (error instanceof Error) {
+            if (error.message === 'INVALID_API_KEY') {
+              console.log('🔄 API key invalid, switching to demo mode')
+              // Switch to demo mode for invalid API key
+              await openRouterService.createDemoChatCompletion(
+                selectedModel,
+                messagesWithSystem,
+                (chunk: string) => {
+                  const data = {
+                    choices: [{
+                      delta: {
+                        content: chunk
+                      }
+                    }]
+                  }
+                  controller.enqueue(`data: ${JSON.stringify(data)}\n\n`)
+                }
+              )
+              controller.enqueue('data: [DONE]\n\n')
+              controller.close()
+              return
+            } else if (error.message === 'MODEL_NOT_FOUND') {
+              const errorData = {
+                choices: [{
+                  delta: {
+                    content: '❌ Model not found. Please select a different model from the dropdown.'
+                  }
+                }]
+              }
+              controller.enqueue(`data: ${JSON.stringify(errorData)}\n\n`)
+              controller.enqueue('data: [DONE]\n\n')
+              controller.close()
+              return
+            } else if (error.message === 'RATE_LIMIT_EXCEEDED') {
+              const errorData = {
+                choices: [{
+                  delta: {
+                    content: '❌ Rate limit exceeded. Please wait a moment and try again.'
+                  }
+                }]
+              }
+              controller.enqueue(`data: ${JSON.stringify(errorData)}\n\n`)
+              controller.enqueue('data: [DONE]\n\n')
+              controller.close()
+              return
+            }
+          }
+          
+          // Generic error handling
           let errorMessage = 'Unable to process your request. Please try again.'
           
           if (error instanceof Error) {
             if (error.message.includes('401') || error.message.includes('Unauthorized') || error.message.includes('User not found')) {
-              errorMessage = 'Invalid OpenRouter API key. Please check your .env.local file and ensure you have a valid API key from https://openrouter.ai/keys'
+              errorMessage = '❌ OpenRouter API key issue. Check your .env.local file or visit https://openrouter.ai/keys'
             } else if (error.message.includes('404')) {
               errorMessage = 'Model not found. Please select a different model from the dropdown.'
             } else if (error.message.includes('429')) {
@@ -69,7 +118,7 @@ export async function POST(req: Request) {
           const errorData = {
             choices: [{
               delta: {
-                content: `❌ ${errorMessage}`
+                content: errorMessage
               }
             }]
           }

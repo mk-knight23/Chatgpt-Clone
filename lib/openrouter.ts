@@ -8,6 +8,46 @@ console.log('🔍 OpenRouter Service Debug:');
 console.log('API Key from env:', OPENROUTER_API_KEY ? `${OPENROUTER_API_KEY.substring(0, 10)}...` : 'NOT FOUND');
 console.log('API Key length:', OPENROUTER_API_KEY ? OPENROUTER_API_KEY.length : 0);
 
+// Request/Response interfaces based on OpenRouter documentation
+interface OpenRouterMessage {
+  role: 'user' | 'assistant' | 'system';
+  content: string;
+  name?: string;
+}
+
+interface OpenRouterRequest {
+  model: string;
+  messages: OpenRouterMessage[];
+  stream?: boolean;
+  temperature?: number;
+  max_tokens?: number;
+  stop?: string | string[];
+}
+
+interface OpenRouterResponse {
+  id: string;
+  choices: Array<{
+    finish_reason: string | null;
+    native_finish_reason: string | null;
+    delta?: {
+      content: string | null;
+      role?: string;
+    };
+    message?: {
+      content: string | null;
+      role: string;
+    };
+  }>;
+  created: number;
+  model: string;
+  object: 'chat.completion' | 'chat.completion.chunk';
+  usage?: {
+    prompt_tokens: number;
+    completion_tokens: number;
+    total_tokens: number;
+  };
+}
+
 export interface OpenRouterModel {
   id: string;
   name: string;
@@ -186,39 +226,79 @@ export class OpenRouterService {
   async createChatCompletion(
     model: string, 
     messages: Array<{role: 'user' | 'assistant' | 'system'; content: string}>
-  ) {
+  ): Promise<string> {
     if (!OPENROUTER_API_KEY) {
       throw new Error('OpenRouter API key not found in environment variables');
     }
 
     try {
+      console.log('🔄 Creating non-streaming chat completion');
+      console.log('🔑 API Key:', OPENROUTER_API_KEY ? `${OPENROUTER_API_KEY.substring(0, 10)}...` : 'NOT FOUND');
+      console.log('🤖 Model:', model);
+      console.log('📝 Messages count:', messages.length);
+
+      // Format request exactly as per OpenRouter documentation
+      const requestBody = {
+        model: model,
+        messages: messages,
+        stream: false,
+        temperature: 0.7,
+        max_tokens: 1000,
+        // Add proper attribution headers as recommended
+        // HTTP-Referer and X-Title will be added as headers
+      };
+
       const response = await fetch(`${OPENROUTER_BASE_URL}/chat/completions`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
           'Content-Type': 'application/json',
-          'HTTP-Referer': 'https://chatgpt-clone.vercel.app',
+          'HTTP-Referer': process.env.NODE_ENV === 'development' ? 'http://localhost:3000' : 'https://chatgpt-clone.vercel.app',
           'X-Title': 'ChatGPT Clone with OpenRouter',
         },
-        body: JSON.stringify({
-          model,
-          messages,
-          stream: false,
-          temperature: 0.7,
-          max_tokens: 1000,
-        }),
+        body: JSON.stringify(requestBody),
       });
+
+      console.log('📡 Response status:', response.status);
+      console.log('📡 Response ok:', response.ok);
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error(`API request failed: ${response.status} ${response.statusText}`, errorText);
-        throw new Error(`API request failed: ${response.status} ${response.statusText}`);
+        console.error(`❌ API request failed: ${response.status} ${response.statusText}`);
+        console.error('❌ Error response:', errorText);
+        
+        // Handle specific error cases based on status codes
+        if (response.status === 401) {
+          throw new Error('INVALID_API_KEY');
+        } else if (response.status === 404) {
+          throw new Error('MODEL_NOT_FOUND');
+        } else if (response.status === 429) {
+          throw new Error('RATE_LIMIT_EXCEEDED');
+        } else {
+          throw new Error(`API request failed: ${response.status} ${response.statusText}`);
+        }
       }
 
-      const data = await response.json();
-      return data.choices[0]?.message?.content || '';
+      const data: OpenRouterResponse = await response.json();
+      console.log('✅ Response received successfully');
+      
+      // Return content from the first choice (as per OpenRouter schema)
+      const content = data.choices?.[0]?.message?.content || '';
+      console.log('📄 Content length:', content.length);
+      
+      return content;
     } catch (error) {
-      console.error('Error creating chat completion:', error);
+      console.error('❌ Error creating chat completion:', error);
+      
+      // If it's a specific error type, rethrow it
+      if (error instanceof Error && (
+        error.message === 'INVALID_API_KEY' || 
+        error.message === 'MODEL_NOT_FOUND' || 
+        error.message === 'RATE_LIMIT_EXCEEDED'
+      )) {
+        throw error;
+      }
+      
       throw error;
     }
   }
@@ -244,7 +324,7 @@ export class OpenRouterService {
         headers: {
           'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
           'Content-Type': 'application/json',
-          'HTTP-Referer': 'https://chatgpt-clone.vercel.app',
+          'HTTP-Referer': process.env.NODE_ENV === 'development' ? 'http://localhost:3000' : 'https://chatgpt-clone.vercel.app',
           'X-Title': 'ChatGPT Clone with OpenRouter',
         },
         body: JSON.stringify({
@@ -259,7 +339,17 @@ export class OpenRouterService {
       if (!response.ok) {
         const errorText = await response.text();
         console.error(`API request failed: ${response.status} ${response.statusText}`, errorText);
-        throw new Error(`API request failed: ${response.status} ${response.statusText}`);
+        
+        // Handle specific error cases
+        if (response.status === 401) {
+          throw new Error('INVALID_API_KEY');
+        } else if (response.status === 404) {
+          throw new Error('MODEL_NOT_FOUND');
+        } else if (response.status === 429) {
+          throw new Error('RATE_LIMIT_EXCEEDED');
+        } else {
+          throw new Error(`API request failed: ${response.status} ${response.statusText}`);
+        }
       }
 
       const reader = response.body?.getReader();
@@ -298,7 +388,53 @@ export class OpenRouterService {
       }
     } catch (error) {
       console.error('Error creating streaming chat completion:', error);
+      
+      // If it's a specific error type, rethrow it
+      if (error instanceof Error && (
+        error.message === 'INVALID_API_KEY' || 
+        error.message === 'MODEL_NOT_FOUND' || 
+        error.message === 'RATE_LIMIT_EXCEEDED'
+      )) {
+        throw error;
+      }
+      
       throw error;
+    }
+  }
+
+  // Demo mode: Simulate chat completion when API is not available
+  async createDemoChatCompletion(
+    model: string, 
+    messages: Array<{role: 'user' | 'assistant' | 'system'; content: string}>,
+    onChunk: (chunk: string) => void
+  ) {
+    console.log('🎭 Running in demo mode - simulating chat completion');
+    
+    const userMessage = messages[messages.length - 1]?.content || '';
+    const modelInfo = this.getFreeModels().find(m => m.id === model);
+    const modelName = modelInfo?.name || 'ChatGPT Clone';
+    
+    // Simulate typing delay
+    const responses = [
+      `Hello! I'm ${modelName}, and I'm here to help you with your questions.`,
+      `I understand you're asking about: "${userMessage.substring(0, 50)}${userMessage.length > 50 ? '...' : ''}"`,
+      `This is a demo response. To get real AI responses, please check that your OpenRouter API key is valid and has the necessary permissions.`,
+      `You can get a free API key from https://openrouter.ai/keys`,
+      `Is there anything specific you'd like to know or discuss?`
+    ];
+    
+    for (let i = 0; i < responses.length; i++) {
+      const response = responses[i];
+      
+      // Stream each response word by word
+      const words = response.split(' ');
+      for (const word of words) {
+        await new Promise(resolve => setTimeout(resolve, 100 + Math.random() * 200));
+        onChunk(word + ' ');
+      }
+      
+      await new Promise(resolve => setTimeout(resolve, 300));
+      onChunk('\n\n');
     }
   }
 
