@@ -8,7 +8,7 @@ export async function POST(req: Request) {
     const { messages, model } = await req.json()
     
     // Get the selected model (fallback to default free model)
-    const selectedModel = model || openRouterService.getDefaultFreeModel()
+    const selectedModel = model || 'minimax/minimax-m2'
     
     // Transform messages to match OpenRouter format
     const transformedMessages = messages.map((msg: any) => ({
@@ -29,6 +29,7 @@ export async function POST(req: Request) {
     const stream = new ReadableStream({
       async start(controller) {
         try {
+          // Try to use OpenRouter service
           await openRouterService.createStreamingChatCompletion(
             selectedModel,
             messagesWithSystem,
@@ -47,8 +48,34 @@ export async function POST(req: Request) {
           controller.enqueue('data: [DONE]\n\n')
           controller.close()
         } catch (error) {
-          console.error('Streaming error:', error)
-          controller.error(error)
+          console.error('OpenRouter API error:', error)
+          
+          // Provide helpful error message based on error type
+          let errorMessage = 'Unable to process your request. Please try again.'
+          
+          if (error instanceof Error) {
+            if (error.message.includes('401') || error.message.includes('Unauthorized') || error.message.includes('User not found')) {
+              errorMessage = 'Invalid OpenRouter API key. Please check your .env.local file and ensure you have a valid API key from https://openrouter.ai/keys'
+            } else if (error.message.includes('404')) {
+              errorMessage = 'Model not found. Please select a different model from the dropdown.'
+            } else if (error.message.includes('429')) {
+              errorMessage = 'Rate limit exceeded. Please wait a moment and try again.'
+            } else if (error.message.includes('500')) {
+              errorMessage = 'OpenRouter service is temporarily unavailable. Please try again later.'
+            }
+          }
+          
+          // Send error message as a streaming response
+          const errorData = {
+            choices: [{
+              delta: {
+                content: `❌ ${errorMessage}`
+              }
+            }]
+          }
+          controller.enqueue(`data: ${JSON.stringify(errorData)}\n\n`)
+          controller.enqueue('data: [DONE]\n\n')
+          controller.close()
         }
       }
     })

@@ -1,8 +1,12 @@
 // Server-side OpenRouter service (for API routes only)
 // This file should only be imported in server-side code like app/api/ files
 
-const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || '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';
+const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
 const OPENROUTER_BASE_URL = 'https://openrouter.ai/api/v1';
+
+console.log('🔍 OpenRouter Service Debug:');
+console.log('API Key from env:', OPENROUTER_API_KEY ? `${OPENROUTER_API_KEY.substring(0, 10)}...` : 'NOT FOUND');
+console.log('API Key length:', OPENROUTER_API_KEY ? OPENROUTER_API_KEY.length : 0);
 
 export interface OpenRouterModel {
   id: string;
@@ -51,6 +55,10 @@ export class OpenRouterService {
 
   async fetchModels(): Promise<OpenRouterModel[]> {
     try {
+      if (!OPENROUTER_API_KEY) {
+        throw new Error('OpenRouter API key not found in environment variables');
+      }
+
       const response = await fetch(`${OPENROUTER_BASE_URL}/models`, {
         headers: {
           'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
@@ -179,6 +187,10 @@ export class OpenRouterService {
     model: string, 
     messages: Array<{role: 'user' | 'assistant' | 'system'; content: string}>
   ) {
+    if (!OPENROUTER_API_KEY) {
+      throw new Error('OpenRouter API key not found in environment variables');
+    }
+
     try {
       const response = await fetch(`${OPENROUTER_BASE_URL}/chat/completions`, {
         method: 'POST',
@@ -217,7 +229,16 @@ export class OpenRouterService {
     messages: Array<{role: 'user' | 'assistant' | 'system'; content: string}>,
     onChunk: (chunk: string) => void
   ) {
+    if (!OPENROUTER_API_KEY) {
+      throw new Error('OpenRouter API key not found in environment variables');
+    }
+
     try {
+      console.log('🚀 Starting streaming chat completion');
+      console.log('🔑 Using API key:', OPENROUTER_API_KEY ? `${OPENROUTER_API_KEY.substring(0, 10)}...` : 'NOT FOUND');
+      console.log('🤖 Model:', model);
+      console.log('📝 Messages count:', messages.length);
+
       const response = await fetch(`${OPENROUTER_BASE_URL}/chat/completions`, {
         method: 'POST',
         headers: {

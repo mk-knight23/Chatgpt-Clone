@@ -21,7 +21,7 @@ export interface UseOpenRouterChat {
 }
 
 export function useOpenRouterChat(
-  model: string = 'openai/gpt-3.5-turbo'
+  model: string = 'minimax/minimax-m2'
 ): UseOpenRouterChat {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [input, setInput] = useState('')
@@ -83,6 +83,11 @@ export function useOpenRouterChat(
         }),
       })
 
+      if (!response.ok) {
+        // Handle HTTP errors gracefully
+        throw new Error(`API request failed: ${response.status}`)
+      }
+
       if (!response.body) {
         throw new Error('No response body')
       }
@@ -119,7 +124,21 @@ export function useOpenRouterChat(
       }
     } catch (error) {
       console.error('Error sending message:', error)
-      updateMessage(assistantMessageId, 'Sorry, I encountered an error. Please try again.')
+      
+      // Provide helpful error message based on error type
+      let errorMessage = 'Sorry, I encountered an error. Please try again.'
+      
+      if (error instanceof Error) {
+        if (error.message.includes('401') || error.message.includes('Unauthorized')) {
+          errorMessage = '❌ Invalid API key. Please update your OpenRouter API key in .env.local'
+        } else if (error.message.includes('fetch')) {
+          errorMessage = '🔗 Connection error. Please check your network connection.'
+        } else if (error.message.includes('API request failed')) {
+          errorMessage = '⚠️ API request failed. The service may be temporarily unavailable.'
+        }
+      }
+      
+      updateMessage(assistantMessageId, errorMessage)
     } finally {
       setIsLoading(false)
     }

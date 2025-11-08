@@ -9,10 +9,10 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Send, Bot, User, Trash2, Plus, Zap } from "lucide-react"
 import { ModelSelector } from "@/components/model-selector"
 import { useOpenRouterChat } from "@/hooks/use-openrouter-chat"
-import { openRouterService } from "@/lib/openrouter"
+import { getDefaultModel } from "@/lib/client-models"
 
 export default function ChatGPTClone() {
-  const [selectedModel, setSelectedModel] = useState(openRouterService.getDefaultFreeModel())
+  const [selectedModel, setSelectedModel] = useState(getDefaultModel())
   const { messages, input, handleInputChange, handleSubmit, isLoading, setMessages, clearMessages } = useOpenRouterChat(selectedModel)
   const [conversations, setConversations] = useState([{ id: 1, title: "New Chat", messages: [] }])
   const [currentConversation, setCurrentConversation] = useState(1)
