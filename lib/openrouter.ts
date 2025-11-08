@@ -1,4 +1,7 @@
-const OPENROUTER_API_KEY = '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';
+// Server-side OpenRouter service (for API routes only)
+// This file should only be imported in server-side code like app/api/ files
+
+const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || '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';
 const OPENROUTER_BASE_URL = 'https://openrouter.ai/api/v1';
 
 export interface OpenRouterModel {
@@ -171,6 +174,7 @@ export class OpenRouterService {
     return this.models;
   }
 
+  // Server-side only: Create chat completion
   async createChatCompletion(
     model: string, 
     messages: Array<{role: 'user' | 'assistant' | 'system'; content: string}>
@@ -188,7 +192,6 @@ export class OpenRouterService {
           model,
           messages,
           stream: false,
-          // Add some basic parameters that most models support
           temperature: 0.7,
           max_tokens: 1000,
         }),
@@ -208,6 +211,7 @@ export class OpenRouterService {
     }
   }
 
+  // Server-side only: Create streaming chat completion
   async createStreamingChatCompletion(
     model: string, 
     messages: Array<{role: 'user' | 'assistant' | 'system'; content: string}>,
@@ -226,7 +230,6 @@ export class OpenRouterService {
           model,
           messages,
           stream: true,
-          // Add some basic parameters that most models support
           temperature: 0.7,
           max_tokens: 1000,
         }),

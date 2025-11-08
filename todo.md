@@ -5,6 +5,7 @@
 - [x] Update chat API route to use OpenRouter
 - [x] Create model selection dropdown component with search
 - [x] Add model filtering and display functionality
+- [x] Create custom chat hook for OpenRouter integration
 - [x] Update UI to show selected model
 - [x] Test the implementation
 - [x] Verify all free models are available
@@ -14,3 +15,16 @@
 - [x] Test the updated model selector
 - [x] Fix API error by using correct model IDs
 - [x] Test API functionality with real streaming responses
+- [x] Provide deployment guidance
+- [x] Fix lockfile conflict for deployment
+- [x] Final deployment readiness confirmation
+- [x] Fix production API key issue
+- [x] Create client-side model data
+- [x] Update model selector to use client-side data
+- [x] Remove server-side service dependency
+- [x] Fix import to use client-side models
+- [x] Complete model selector rewrite
+- [x] Test production fix
+- [x] Check server status
+- [x] Final API test
+- [x] Production deployment ready
