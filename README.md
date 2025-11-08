@@ -10,7 +10,7 @@ A modern, feature-rich ChatGPT clone built with Next.js, featuring real AI model
 3. Add environment variable: `OPENROUTER_API_KEY` = your OpenRouter API key
 4. Click "Deploy"
 
-**🔗 After deployment, your app will be live at:** `https://chatgpt-clone-xyz123.vercel.app`
+**🔗 After deployment, your app will be live at:** [Live Link ](https://v0-clone-chat-gpt-app-eta.vercel.app)
 
 ## ✨ Features
 
