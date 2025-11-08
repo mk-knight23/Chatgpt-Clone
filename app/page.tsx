@@ -1,17 +1,19 @@
 "use client"
 
 import type React from "react"
-
-import { useChat } from "@ai-sdk/react"
 import { useState, useRef, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { Send, Bot, User, Trash2, Plus } from "lucide-react"
+import { Send, Bot, User, Trash2, Plus, Zap } from "lucide-react"
+import { ModelSelector } from "@/components/model-selector"
+import { useOpenRouterChat } from "@/hooks/use-openrouter-chat"
+import { openRouterService } from "@/lib/openrouter"
 
 export default function ChatGPTClone() {
-  const { messages, input, handleInputChange, handleSubmit, isLoading, setMessages } = useChat()
+  const [selectedModel, setSelectedModel] = useState(openRouterService.getDefaultFreeModel())
+  const { messages, input, handleInputChange, handleSubmit, isLoading, setMessages, clearMessages } = useOpenRouterChat(selectedModel)
   const [conversations, setConversations] = useState([{ id: 1, title: "New Chat", messages: [] }])
   const [currentConversation, setCurrentConversation] = useState(1)
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -30,14 +32,14 @@ export default function ChatGPTClone() {
   }, [])
 
   const clearChat = () => {
-    setMessages([])
+    clearMessages()
   }
 
   const newChat = () => {
     const newId = conversations.length + 1
     setConversations([...conversations, { id: newId, title: "New Chat", messages: [] }])
     setCurrentConversation(newId)
-    setMessages([])
+    clearMessages()
   }
 
   const onSubmit = (e: React.FormEvent<HTMLFormElement>) => {
@@ -73,24 +75,35 @@ export default function ChatGPTClone() {
 
         <div className="p-4 border-t border-gray-700">
           <div className="text-sm text-gray-400">ChatGPT Clone</div>
-          <div className="text-xs text-gray-500">Powered by OpenAI</div>
+          <div className="text-xs text-gray-500">Powered by OpenRouter</div>
         </div>
       </div>
 
       {/* Main Chat Area */}
       <div className="flex-1 flex flex-col">
         {/* Header */}
-        <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-4 flex justify-between items-center">
-          <h1 className="text-xl font-semibold text-gray-800 dark:text-white">ChatGPT Clone</h1>
-          <Button
-            onClick={clearChat}
-            variant="outline"
-            size="sm"
-            className="text-gray-600 hover:text-gray-800 bg-transparent"
-          >
-            <Trash2 className="w-4 h-4 mr-2" />
-            Clear Chat
-          </Button>
+        <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-4">
+          <div className="flex justify-between items-center mb-4">
+            <h1 className="text-xl font-semibold text-gray-800 dark:text-white">ChatGPT Clone</h1>
+            <Button
+              onClick={clearChat}
+              variant="outline"
+              size="sm"
+              className="text-gray-600 hover:text-gray-800 bg-transparent"
+            >
+              <Trash2 className="w-4 h-4 mr-2" />
+              Clear Chat
+            </Button>
+          </div>
+          
+          {/* Model Selector */}
+          <div className="max-w-md">
+            <ModelSelector
+              selectedModel={selectedModel}
+              onModelChange={setSelectedModel}
+              disabled={isLoading}
+            />
+          </div>
         </div>
 
         {/* Messages Area */}
@@ -101,6 +114,10 @@ export default function ChatGPTClone() {
                 <Bot className="w-12 h-12 mx-auto text-gray-400 mb-4" />
                 <h2 className="text-2xl font-semibold text-gray-800 dark:text-white mb-2">How can I help you today?</h2>
                 <p className="text-gray-600 dark:text-gray-400">Start a conversation by typing a message below.</p>
+                <div className="mt-4 flex items-center justify-center gap-2 text-sm text-gray-500">
+                  <Zap className="w-4 h-4 text-blue-500" />
+                  <span>Using {selectedModel}</span>
+                </div>
               </div>
             ) : (
               messages.map((message) => (
@@ -119,18 +136,9 @@ export default function ChatGPTClone() {
                       {message.role === "user" ? "You" : "ChatGPT"}
                     </div>
                     <div className="prose prose-sm max-w-none text-gray-700 dark:text-gray-300">
-                      {message.parts.map((part, i) => {
-                        switch (part.type) {
-                          case "text":
-                            return (
-                              <div key={`${message.id}-${i}`} className="whitespace-pre-wrap">
-                                {part.text}
-                              </div>
-                            )
-                          default:
-                            return null
-                        }
-                      })}
+                      <div className="whitespace-pre-wrap">
+                        {message.content}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -187,8 +195,12 @@ export default function ChatGPTClone() {
                 </Button>
               </div>
             </form>
-            <div className="text-xs text-gray-500 dark:text-gray-400 mt-2 text-center">
-              ChatGPT can make mistakes. Consider checking important information.
+            <div className="flex justify-between items-center mt-2 text-xs text-gray-500 dark:text-gray-400">
+              <span>ChatGPT can make mistakes. Consider checking important information.</span>
+              <div className="flex items-center gap-1">
+                <Zap className="w-3 h-3 text-blue-500" />
+                <span>{selectedModel}</span>
+              </div>
             </div>
           </div>
         </div>

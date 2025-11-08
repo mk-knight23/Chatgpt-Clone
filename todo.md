@@ -1,0 +1,16 @@
+- [x] Get OpenRouter API key from user
+- [x] Research OpenRouter free models and API structure
+- [x] Install OpenRouter SDK dependency
+- [x] Create OpenRouter API integration service
+- [x] Update chat API route to use OpenRouter
+- [x] Create model selection dropdown component with search
+- [x] Add model filtering and display functionality
+- [x] Update UI to show selected model
+- [x] Test the implementation
+- [x] Verify all free models are available
+- [x] Implement strict free model filtering (no paid models)
+- [x] Fix model selector to show free models (with fallback)
+- [x] Update with all actual OpenRouter free models from current list
+- [x] Test the updated model selector
+- [x] Fix API error by using correct model IDs
+- [x] Test API functionality with real streaming responses
