@@ -1,148 +1,74 @@
-import { openRouterService } from "@/lib/openrouter"
+import { ProviderClient } from '@/lib/providers/client';
+import { getProvider } from '@/lib/providers/registry';
 
-// Allow streaming responses up to 30 seconds
-export const maxDuration = 30
+export const maxDuration = 30;
 
 export async function POST(req: Request) {
   try {
-    const { messages, model } = await req.json()
-    
-    // Get the selected model (fallback to default free model)
-    const selectedModel = model || 'minimax/minimax-m2'
-    
-    // Transform messages to match OpenRouter format
-    const transformedMessages = messages.map((msg: any) => ({
-      role: msg.role,
-      content: msg.content
-    }))
-    
-    // Add system prompt
-    const messagesWithSystem = [
-      {
-        role: 'system' as const,
-        content: 'You are a helpful AI assistant. Provide clear, accurate, and helpful responses to user questions.'
-      },
-      ...transformedMessages
-    ]
+    const { messages, provider: providerId, model, config } = await req.json();
 
-    // Create streaming response
+    console.log('Chat API called:', { providerId, model, hasApiKey: !!config?.apiKey });
+
+    const provider = getProvider(providerId);
+    if (!provider) {
+      return new Response(JSON.stringify({ error: 'Provider not found' }), { status: 400 });
+    }
+
+    // Validate API key for providers that require it
+    if (provider.requiresApiKey && !config?.apiKey) {
+      return new Response(JSON.stringify({ error: 'API key required' }), { status: 401 });
+    }
+
+    const systemMessage = { role: 'system' as const, content: 'You are a helpful AI assistant.' };
+    const allMessages = [systemMessage, ...messages];
+
+    const client = new ProviderClient(providerId, provider.baseUrl || '', config);
+
     const stream = new ReadableStream({
       async start(controller) {
         try {
-          // Try to use OpenRouter service
-          await openRouterService.createStreamingChatCompletion(
-            selectedModel,
-            messagesWithSystem,
-            (chunk: string) => {
-              const data = {
-                choices: [{
-                  delta: {
-                    content: chunk
-                  }
-                }]
-              }
-              controller.enqueue(`data: ${JSON.stringify(data)}\n\n`)
-            }
-          )
-          
-          controller.enqueue('data: [DONE]\n\n')
-          controller.close()
+          for await (const chunk of client.streamChat(model, allMessages)) {
+            const data = { choices: [{ delta: { content: chunk } }] };
+            controller.enqueue(`data: ${JSON.stringify(data)}\n\n`);
+          }
+          controller.enqueue('data: [DONE]\n\n');
+          controller.close();
         } catch (error) {
-          console.error('OpenRouter API error:', error)
+          console.error('Stream error:', error);
           
-          // Check for specific error types and handle them
+          let errorMsg = 'Unknown error occurred';
           if (error instanceof Error) {
-            if (error.message === 'INVALID_API_KEY') {
-              console.log('🔄 API key invalid, switching to demo mode')
-              // Switch to demo mode for invalid API key
-              await openRouterService.createDemoChatCompletion(
-                selectedModel,
-                messagesWithSystem,
-                (chunk: string) => {
-                  const data = {
-                    choices: [{
-                      delta: {
-                        content: chunk
-                      }
-                    }]
-                  }
-                  controller.enqueue(`data: ${JSON.stringify(data)}\n\n`)
-                }
-              )
-              controller.enqueue('data: [DONE]\n\n')
-              controller.close()
-              return
-            } else if (error.message === 'MODEL_NOT_FOUND') {
-              const errorData = {
-                choices: [{
-                  delta: {
-                    content: '❌ Model not found. Please select a different model from the dropdown.'
-                  }
-                }]
-              }
-              controller.enqueue(`data: ${JSON.stringify(errorData)}\n\n`)
-              controller.enqueue('data: [DONE]\n\n')
-              controller.close()
-              return
-            } else if (error.message === 'RATE_LIMIT_EXCEEDED') {
-              const errorData = {
-                choices: [{
-                  delta: {
-                    content: '❌ Rate limit exceeded. Please wait a moment and try again.'
-                  }
-                }]
-              }
-              controller.enqueue(`data: ${JSON.stringify(errorData)}\n\n`)
-              controller.enqueue('data: [DONE]\n\n')
-              controller.close()
-              return
+            errorMsg = error.message;
+            
+            // Parse specific error codes
+            if (errorMsg.includes('401')) {
+              errorMsg = 'Invalid API key. Please check your API key in Settings.';
+            } else if (errorMsg.includes('402')) {
+              errorMsg = 'Payment required. Your API key may need credits or a valid payment method.';
+            } else if (errorMsg.includes('429')) {
+              errorMsg = 'Rate limit exceeded. Please wait and try again.';
+            } else if (errorMsg.includes('500')) {
+              errorMsg = 'Provider service error. Please try again later.';
             }
           }
           
-          // Generic error handling
-          let errorMessage = 'Unable to process your request. Please try again.'
-          
-          if (error instanceof Error) {
-            if (error.message.includes('401') || error.message.includes('Unauthorized') || error.message.includes('User not found')) {
-              errorMessage = '❌ OpenRouter API key issue. Check your .env.local file or visit https://openrouter.ai/keys'
-            } else if (error.message.includes('404')) {
-              errorMessage = 'Model not found. Please select a different model from the dropdown.'
-            } else if (error.message.includes('429')) {
-              errorMessage = 'Rate limit exceeded. Please wait a moment and try again.'
-            } else if (error.message.includes('500')) {
-              errorMessage = 'OpenRouter service is temporarily unavailable. Please try again later.'
-            }
-          }
-          
-          // Send error message as a streaming response
-          const errorData = {
-            choices: [{
-              delta: {
-                content: errorMessage
-              }
-            }]
-          }
-          controller.enqueue(`data: ${JSON.stringify(errorData)}\n\n`)
-          controller.enqueue('data: [DONE]\n\n')
-          controller.close()
+          const data = { choices: [{ delta: { content: `❌ Error: ${errorMsg}` } }] };
+          controller.enqueue(`data: ${JSON.stringify(data)}\n\n`);
+          controller.enqueue('data: [DONE]\n\n');
+          controller.close();
         }
       }
-    })
+    });
 
     return new Response(stream, {
       headers: {
         'Content-Type': 'text/event-stream',
         'Cache-Control': 'no-cache',
-        'Connection': 'keep-alive',
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Headers': 'Cache-Control',
-      },
-    })
+        'Connection': 'keep-alive'
+      }
+    });
   } catch (error) {
-    console.error('Chat API error:', error)
-    return new Response(JSON.stringify({ error: 'Internal server error' }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' }
-    })
+    console.error('API error:', error);
+    return new Response(JSON.stringify({ error: 'Internal error' }), { status: 500 });
   }
 }

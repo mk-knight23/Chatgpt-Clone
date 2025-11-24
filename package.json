@@ -1,8 +1,8 @@
 {
-  "name": "chatgpt-clone-openrouter",
-  "version": "1.0.0",
+  "name": "chatgpt-clone-multi-provider",
+  "version": "2.0.0",
   "private": true,
-  "description": "ChatGPT Clone with OpenRouter - 9 Free AI Models, Theme Support, Streaming Responses",
+  "description": "Multi-Provider AI Chat - 27+ Providers, 100+ Free Models, Universal API Support",
   "scripts": {
     "build": "next build",
     "dev": "next dev",
@@ -59,7 +59,9 @@
     "tailwind-merge": "^2.5.5",
     "tailwindcss-animate": "^1.0.7",
     "vaul": "latest",
-    "zod": "^3.24.1"
+    "zod": "^3.24.1",
+    "zustand": "^5.0.2",
+    "zustand": "^5.0.8"
   },
   "devDependencies": {
     "@types/node": "^22",
